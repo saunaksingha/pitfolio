@@ -541,7 +541,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     children: [
                       AppBottomAction(
                         label: 'Save expense',
-                        isLoading: _isSaving,
                         onPressed: _isSaving ? null : _saveExpense,
                       ),
                       TextButton(
@@ -682,7 +681,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
       ],
-      hasError: _amountHasError,
+      //  hasError: _amountHasError,
       onChanged: (_) {
         if (_amountHasError) {
           setState(() => _amountHasError = false);

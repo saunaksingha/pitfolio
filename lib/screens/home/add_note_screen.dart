@@ -491,9 +491,6 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
                         controller: _titleController,
                         hint: 'Enter a title for your note',
                         maxLines: 1,
-                        hasError:
-                            _saveAttempted &&
-                            _titleController.text.trim().isEmpty,
                         onChanged: (_) => setState(() {}),
                       ),
                       FormField<String>(

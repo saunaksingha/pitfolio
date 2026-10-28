@@ -1,16 +1,17 @@
 import '../database/db_keys.dart';
+import '../core/constants/app_options.dart';
 
 class AttachmentModel {
   final int? id;
   final int recordId;
-  final String attachmentType;
+  final AttachmentType attachmentType;
 
   final String fileName;
   final String filePath;
   final String? mimeType;
   final int? fileSize;
 
-  final String createdAt;
+  final String? createdAt;
 
   const AttachmentModel({
     this.id,
@@ -20,14 +21,14 @@ class AttachmentModel {
     required this.filePath,
     this.mimeType,
     this.fileSize,
-    required this.createdAt,
+    this.createdAt,
   });
 
   Map<String, dynamic> toMap() {
     return {
       Attachment.attachmentId: id,
       Attachment.recordId: recordId,
-      Attachment.attachmentType: attachmentType,
+      Attachment.attachmentType: attachmentType.name,
       Attachment.fileName: fileName,
       Attachment.filePath: filePath,
       Attachment.mimeType: mimeType,
@@ -40,12 +41,14 @@ class AttachmentModel {
     return AttachmentModel(
       id: map[Attachment.attachmentId] as int?,
       recordId: map[Attachment.recordId] as int,
-      attachmentType: map[Attachment.attachmentType] as String,
+      attachmentType: AttachmentType.values.byName(
+        map[Attachment.attachmentType] as String,
+      ),
       fileName: map[Attachment.fileName] as String,
       filePath: map[Attachment.filePath] as String,
       mimeType: map[Attachment.mimeType] as String?,
       fileSize: map[Attachment.fileSize] as int?,
-      createdAt: map[Attachment.createdAt] as String,
+      createdAt: map[Attachment.createdAt] as String?,
     );
   }
 }

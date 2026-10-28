@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil_plus/flutter_screenutil_plus.dart';
 
 import 'core/theme/app_theme.dart';
-import 'screens/onboarding/add_vehicle_screen.dart';
 import 'screens/onboarding/splash_screen.dart';
 import 'screens/onboarding/unit_preferences_screen.dart';
 import 'screens/main_navigation_screen.dart';
@@ -26,19 +25,8 @@ class PitfolioApp extends StatelessWidget {
           routes: {
             '/': (context) => const SplashScreen(),
 
-            '/preferences': (context) => UnitPreferencesScreen(
-              onContinue: (preferences) async {
-                debugPrint('Currency: ${preferences.currency}');
-                debugPrint('Distance: ${preferences.distanceUnit}');
-                debugPrint('Fuel capacity: ${preferences.fuelCapacityUnit}');
+            '/preferences': (context) => UnitPreferencesScreen(),
 
-                // Continue to the Add Vehicle screen.
-                if (!context.mounted) return;
-                Navigator.of(context).pushReplacementNamed('/add-vehicle');
-              },
-            ),
-
-            '/add-vehicle': (context) => const AddVehicleScreen(),
             '/home': (context) => const MainNavigationScreen(),
           },
         );

@@ -326,7 +326,6 @@ class _FuelRefillScreenState extends State<FuelRefillScreen> {
                 children: [
                   AppBottomAction(
                     label: 'Save fuel record',
-                    isLoading: _isSaving,
                     onPressed: _isSaving ? null : _saveFuelRecord,
                   ),
                   TextButton(
@@ -519,7 +518,7 @@ class _FuelRefillScreenState extends State<FuelRefillScreen> {
       suffix: 'km',
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      hasError: _odometerHasError,
+      // hasError: _odometerHasError,
       onChanged: (_) {
         if (_odometerHasError) {
           setState(() => _odometerHasError = false);
@@ -538,7 +537,7 @@ class _FuelRefillScreenState extends State<FuelRefillScreen> {
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,3}')),
       ],
-      hasError: _quantityHasError,
+      // hasError: _quantityHasError,
       onChanged: (_) {
         if (_quantityHasError) {
           setState(() => _quantityHasError = false);
@@ -557,7 +556,7 @@ class _FuelRefillScreenState extends State<FuelRefillScreen> {
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
       ],
-      hasError: _costHasError,
+      // hasError: _costHasError,
       onChanged: (_) {
         if (_costHasError) {
           setState(() => _costHasError = false);

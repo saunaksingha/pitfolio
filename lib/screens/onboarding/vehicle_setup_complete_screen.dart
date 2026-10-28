@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil_plus/flutter_screenutil_plus.dart';
+import 'package:pitfolio/screens/main_navigation_screen.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimensions.dart';
@@ -13,15 +14,17 @@ class VehicleSetupCompleteScreen extends StatelessWidget {
     required this.vehicleName,
     required this.make,
     required this.model,
-    required this.year,
+    this.year,
     required this.odometer,
+    required this.onConfirm,
     this.onEditDetails,
   });
 
+  final Future<bool> Function() onConfirm;
   final String vehicleName;
   final String make;
   final String model;
-  final String year;
+  final String? year;
   final String odometer;
 
   final VoidCallback? onEditDetails;
@@ -150,7 +153,7 @@ class VehicleSetupCompleteScreen extends StatelessWidget {
                                       SizedBox(height: AppDimensions.space4.h),
 
                                       Text(
-                                        '$make $model • $year',
+                                        '$make $model${year?.isNotEmpty == true ? ' • $year' : ''}',
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                         style: AppTextStyles.bodySecondary
@@ -224,12 +227,24 @@ class VehicleSetupCompleteScreen extends StatelessWidget {
                   // Reuse the existing shared button.
                   AppBottomAction(
                     label: 'Continue to Pitfolio',
-                    onPressed: () {
-                      // TODO: Replace '/home' with your registered
-                      // home route when it is available.
-                      Navigator.of(
-                        context,
-                      ).pushNamedAndRemoveUntil('/home', (route) => false);
+                    onPressed: () async {
+                      // // TODO: Replace '/home' with your registered
+                      // // home route when it is available.
+                      // Navigator.of(
+                      //   context,
+                      // ).pushNamedAndRemoveUntil('/home', (route) => false);
+
+                      bool saved = await onConfirm();
+                      if (saved) {
+                        //Go to home
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => MainNavigationScreen(),
+                          ),
+                        );
+                      } else {
+                        Navigator.pop(context);
+                      }
                     },
                   ),
                 ],

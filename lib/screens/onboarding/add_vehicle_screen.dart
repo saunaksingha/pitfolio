@@ -2,6 +2,15 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil_plus/flutter_screenutil_plus.dart';
+import 'package:pitfolio/core/utils/file_storage_service.dart';
+import 'package:pitfolio/core/widgets/app_date_picker.dart';
+import 'package:pitfolio/core/widgets/app_page_header.dart';
+import 'package:pitfolio/models/attachment.dart';
+import 'package:pitfolio/models/vehicle.dart';
+import 'package:pitfolio/repositories/attachment_repository.dart';
+import 'package:pitfolio/repositories/vehicle_repository.dart';
+import 'package:pitfolio/screens/onboarding/unit_preferences_screen.dart';
+import 'package:pitfolio/screens/onboarding/vehicle_setup_complete_screen.dart';
 
 import '../../core/constants/app_options.dart';
 import '../../core/theme/app_colors.dart';
@@ -13,10 +22,10 @@ import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/app_document_section.dart';
 import '../../core/widgets/app_expandable_section.dart';
-import 'vehicle_setup_complete_screen.dart';
 
 class AddVehicleScreen extends StatefulWidget {
-  const AddVehicleScreen({super.key});
+  final UnitPreferencesData preferences;
+  const AddVehicleScreen({super.key, required this.preferences});
 
   @override
   State<AddVehicleScreen> createState() => _AddVehicleScreenState();
@@ -35,32 +44,40 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     'png',
   };
 
+  //Files to store
+  PlatformFile? _selectedVehicleImage;
+  final List<PlatformFile> _selectedPurchaseFiles = [];
+
   final _vehicleNameController = TextEditingController();
   final _makeController = TextEditingController();
   final _modelController = TextEditingController();
+  final _variantController = TextEditingController();
   final _odometerController = TextEditingController();
-
-  final _purchaseDateController = TextEditingController();
+  final _tankCapacityController = TextEditingController();
   final _purchasePriceController = TextEditingController();
   final _purchaseOdometerController = TextEditingController();
-
   final _notesController = TextEditingController();
 
-  String? _year;
+  //errors
+  String? _vehicanNameErrorText;
+  String? _makeErrorText;
+  String? _modelErrorText;
+  String? _currentOdometerErrorText;
+  String? _fuelTypeErrorText;
+  String? _tankCapacityErrorText;
+
+  //Non essentials
+
+  String? _purchasePriceErrorText;
+  String? _purchaseOdometerErrorText;
+
+  //date picker
+  DateTime? _purchaseDate;
+
   String? _fuelType;
   bool _isSaving = false;
 
-  bool _vehicleNameHasError = false;
-  bool _makeHasError = false;
-  bool _modelHasError = false;
-  bool _odometerHasError = false;
-
   final List<AppDocumentItem> _purchaseDocuments = [];
-  final List<AppDocumentItem> _otherDocuments = [];
-
-  late final Map<String, String> _years = {
-    for (int year = DateTime.now().year; year >= 1980; year--) '$year': '$year',
-  };
 
   @override
   void dispose() {
@@ -68,22 +85,46 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     _makeController.dispose();
     _modelController.dispose();
     _odometerController.dispose();
-    _purchaseDateController.dispose();
     _purchasePriceController.dispose();
     _purchaseOdometerController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
   // ------------------------------------------------------------
   // Document picker
   // ------------------------------------------------------------
+
+  VehicleModel _buildVehicleModel({
+    required String vehicleName,
+    required String make,
+    required String model,
+    required int odometerValue,
+    required String fuelType,
+    required double tankCapacityValue,
+    required int? purchaseValue,
+    required int? purchaseOdometerValue,
+    String? photoPath,
+  }) {
+    return VehicleModel(
+      name: vehicleName,
+      make: make,
+      model: model,
+      variant: _variantController.text.trim().isEmpty
+          ? null
+          : _variantController.text.trim(),
+      currentOdometer: odometerValue,
+      fuelType: fuelType,
+      fuelTankCapacity: tankCapacityValue,
+      currency: widget.preferences.currency,
+      fuelUnit: widget.preferences.fuelCapacityUnit,
+      distanceUnit: widget.preferences.distanceUnit,
+      purchaseDate: _purchaseDate?.toIso8601String(),
+      purchasePrice: purchaseValue?.toDouble(),
+      purchaseOdometer: purchaseOdometerValue,
+      photoPath: photoPath,
+    );
+  }
 
   Future<void> _pickDocuments(List<AppDocumentItem> destination) async {
     try {
@@ -99,6 +140,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
           .toSet();
 
       final documentsToAdd = <AppDocumentItem>[];
+      final filesToAdd = <PlatformFile>[];
+
       var rejectedCount = 0;
       var duplicateCount = 0;
 
@@ -139,6 +182,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
           ),
         );
 
+        filesToAdd.add(file);
         existingNames.add(normalizedName);
       }
 
@@ -146,6 +190,9 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
       setState(() {
         destination.addAll(documentsToAdd);
+
+        // Keep the actual files in the same order as the UI documents.
+        _selectedPurchaseFiles.addAll(filesToAdd);
       });
 
       final messages = <String>[];
@@ -166,10 +213,11 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         messages.add('No new documents selected');
       }
 
-      _showSnackBar(messages.join('. '));
+      // _showSnackBar(messages.join('. '));
     } catch (_) {
       if (!mounted) return;
-      _showSnackBar('Unable to select documents. Please try again.');
+
+      // _showSnackBar('Unable to select documents. Please try again.');
     }
   }
 
@@ -189,7 +237,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       final extension = file.extension?.toLowerCase();
 
       if (extension == null || !['png', 'jpg', 'jpeg'].contains(extension)) {
-        _showSnackBar('Please select a PNG or JPG image.');
+        // _showSnackBar('Please select a PNG or JPG image.');
         return;
       }
 
@@ -200,7 +248,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       if (fileSize == null ||
           fileSize <= 0 ||
           fileSize > _maxVehicleImageSize) {
-        _showSnackBar('Select an image that is 10 MB or smaller.');
+        // _showSnackBar('Select an image that is 10 MB or smaller.');
         return;
       }
 
@@ -209,12 +257,13 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       if (!mounted) return;
 
       setState(() {
+        _selectedVehicleImage = file;
         _vehicleImageBytes = bytes;
         _vehicleImageName = file.name;
       });
     } catch (_) {
       if (!mounted) return;
-      _showSnackBar('Unable to select the image. Please try again.');
+      // _showSnackBar('Unable to select the image. Please try again.');
     }
   }
 
@@ -310,124 +359,178 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   // Purchase date picker
   // ------------------------------------------------------------
 
-  Future<void> _selectPurchaseDate() async {
-    final now = DateTime.now();
-
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: DateTime(1950),
-      lastDate: now,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(
-              context,
-            ).colorScheme.copyWith(primary: AppColors.primary),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (pickedDate == null || !mounted) return;
-
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-
-    _purchaseDateController.text =
-        '${pickedDate.day.toString().padLeft(2, '0')} '
-        '${months[pickedDate.month - 1]} ${pickedDate.year}';
-  }
-
   // ------------------------------------------------------------
   // Save validation
   // ------------------------------------------------------------
 
-  Future<void> _saveVehicle() async {
+  Future<bool> _saveVehicalRecords(
+    VehicleModel vehicleModel,
+    List<AttachmentModel> attachmentModels,
+  ) async {
+    return await VehicleRepository.instance.addVehicleWithAttachments(
+      vehicleModel,
+      attachmentModels,
+    );
+  }
+
+  Future<void> _processInputs() async {
     if (_isSaving) return;
 
-    final vehicleNameInvalid = _vehicleNameController.text.trim().isEmpty;
-    final makeInvalid = _makeController.text.trim().isEmpty;
-    final modelInvalid = _modelController.text.trim().isEmpty;
-    final yearInvalid = _year == null;
-    final fuelTypeInvalid = _fuelType == null;
+    //essential information
+
+    final vehicleName = _vehicleNameController.text.trim();
+    final make = _makeController.text.trim();
+    final model = _modelController.text.trim();
 
     final odometerText = _odometerController.text.replaceAll(',', '').trim();
-
     final odometerValue = int.tryParse(odometerText);
-    final odometerInvalid =
-        odometerText.isEmpty || odometerValue == null || odometerValue < 0;
+
+    final tankCapacityText = _tankCapacityController.text
+        .replaceAll(',', '')
+        .trim();
+    final tankCapacityValue = int.tryParse(tankCapacityText);
+
+    final seclectedFuelType = _fuelType;
+
+    // Optional purchase price
+    final purchasePrice = _purchasePriceController.text
+        .replaceAll(',', '')
+        .trim();
+
+    final purchaseValue = purchasePrice.isEmpty
+        ? null
+        : int.tryParse(purchasePrice);
+
+    // Optional purchase odometer
+    final purchaseOdometer = _purchaseOdometerController.text
+        .replaceAll(',', '')
+        .trim();
+
+    final purchaseOdometerValue = purchaseOdometer.isEmpty
+        ? null
+        : int.tryParse(purchaseOdometer);
+    //Now check the essential
 
     setState(() {
-      _vehicleNameHasError = vehicleNameInvalid;
-      _makeHasError = makeInvalid;
-      _modelHasError = modelInvalid;
-      _odometerHasError = odometerInvalid;
+      _vehicanNameErrorText = vehicleName.isEmpty
+          ? 'Please enter a vehicle name'
+          : null;
+
+      _makeErrorText = make.isEmpty ? 'Please enter the vehicle make' : null;
+
+      _modelErrorText = model.isEmpty ? 'Please enter the vehicle model' : null;
+
+      _currentOdometerErrorText = odometerValue == null || odometerValue < 0
+          ? 'Please enter a valid odometer reading'
+          : null;
+
+      _fuelTypeErrorText = seclectedFuelType == null
+          ? 'Please select a fuel type'
+          : null;
+
+      _tankCapacityErrorText =
+          tankCapacityValue == null || tankCapacityValue <= 0
+          ? "Please enter a valid tank capacity"
+          : null;
     });
 
-    if (vehicleNameInvalid ||
-        makeInvalid ||
-        modelInvalid ||
-        yearInvalid ||
-        fuelTypeInvalid ||
-        odometerInvalid) {
-      final missingFields = <String>[];
-
-      if (vehicleNameInvalid) missingFields.add('vehicle name');
-      if (makeInvalid) missingFields.add('make');
-      if (modelInvalid) missingFields.add('model');
-      if (yearInvalid) missingFields.add('year');
-      if (fuelTypeInvalid) missingFields.add('fuel type');
-
-      if (odometerInvalid) {
-        missingFields.add('a valid current odometer reading');
-      }
-
-      _showSnackBar('Please complete: ${missingFields.join(', ')}.');
+    if (vehicleName.isEmpty ||
+        make.isEmpty ||
+        model.isEmpty ||
+        odometerValue == null ||
+        odometerValue < 0 ||
+        seclectedFuelType == null ||
+        tankCapacityValue == null ||
+        tankCapacityValue <= 0) {
       return;
     }
 
-    setState(() => _isSaving = true);
-
-    try {
-      // TODO: Save the vehicle using your repository/controller.
-      // This delay is temporary; it does not persist vehicle data.
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-
-      if (!mounted) return;
-
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => VehicleSetupCompleteScreen(
-            vehicleName: _vehicleNameController.text.trim(),
-            make: _makeController.text.trim(),
-            model: _modelController.text.trim(),
-            year: _year!,
-            odometer: odometerText,
-          ),
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      _showSnackBar('Something went wrong. Please try again.');
-    } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
+    // Validate purchase price only if entered.
+    if (purchasePrice.isNotEmpty) {
+      if (purchaseValue == null || purchaseValue < 0) {
+        setState(() {
+          _purchasePriceErrorText = 'Please enter a valid purchase price';
+        });
+        return;
       }
     }
+
+    // Validate purchase odometer only if entered.
+    if (purchaseOdometer.isNotEmpty) {
+      if (purchaseOdometerValue == null || purchaseOdometerValue < 0) {
+        setState(() {
+          _purchaseOdometerErrorText = 'Please enter a valid purchase odometer';
+        });
+        return;
+      }
+    }
+
+    //I can go ahed and save the data
+
+    _isSaving = true;
+
+    final List<AttachmentModel> attachmentModels = [];
+
+    VehicleModel vehicleModel = _buildVehicleModel(
+      vehicleName: vehicleName,
+      make: make,
+      model: model,
+      odometerValue: odometerValue,
+      fuelType: _fuelType!,
+      purchaseValue: purchaseValue,
+      tankCapacityValue: tankCapacityValue.toDouble(),
+      purchaseOdometerValue: purchaseOdometerValue,
+    );
+
+    if (_selectedVehicleImage != null) {
+      final savedImagePath = await FileStorageService.storeFile(
+        _selectedVehicleImage!,
+        namePrefix: 'vehicle',
+      );
+
+      vehicleModel.photoPath = savedImagePath;
+
+      final attachment = AttachmentModel(
+        recordId: -1,
+        attachmentType: AttachmentType.vehiclePhoto,
+        fileName: _selectedVehicleImage!.name,
+        filePath: savedImagePath,
+      );
+
+      attachmentModels.add(attachment);
+    }
+
+    for (final file in _selectedPurchaseFiles) {
+      final savedPath = await FileStorageService.storeFile(
+        file,
+        namePrefix: 'purchase',
+      );
+
+      final attachment = AttachmentModel(
+        recordId: -1,
+        attachmentType: AttachmentType.purchaseDocument,
+        fileName: file.name,
+        filePath: savedPath,
+      );
+
+      attachmentModels.add(attachment);
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => VehicleSetupCompleteScreen(
+          vehicleName: vehicleName,
+          make: make,
+          model: model,
+          year: _purchaseDate?.year
+              .toString(), // Pass the actual year if you collect it.
+          odometer: odometerValue.toString(),
+          onConfirm: () => _saveVehicalRecords(vehicleModel, attachmentModels),
+        ),
+      ),
+    );
+
+    _isSaving = false;
   }
 
   // ------------------------------------------------------------
@@ -449,7 +552,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              _buildHeader(),
+              //_buildHeader(),
+              AppPageHeader(title: "Vehical Profile Setup"),
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
@@ -483,10 +587,13 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                             label: 'Vehicle name',
                             controller: _vehicleNameController,
                             hint: 'e.g. My daily car',
-                            hasError: _vehicleNameHasError,
+                            errorText: _vehicanNameErrorText,
                             onChanged: (_) {
-                              if (_vehicleNameHasError) {
-                                setState(() => _vehicleNameHasError = false);
+                              if (_vehicanNameErrorText != null ||
+                                  _vehicanNameErrorText!.isNotEmpty) {
+                                setState(() {
+                                  _vehicanNameErrorText = null;
+                                });
                               }
                             },
                           ),
@@ -497,10 +604,13 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                             label: 'Make',
                             controller: _makeController,
                             hint: 'e.g. Maruti Suzuki',
-                            hasError: _makeHasError,
+                            errorText: _makeErrorText,
                             onChanged: (_) {
-                              if (_makeHasError) {
-                                setState(() => _makeHasError = false);
+                              if (_makeErrorText != null ||
+                                  _makeErrorText!.isNotEmpty) {
+                                setState(() {
+                                  _makeErrorText = null;
+                                });
                               }
                             },
                           ),
@@ -511,26 +621,23 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                             label: 'Model',
                             controller: _modelController,
                             hint: 'e.g. Swift',
-                            hasError: _modelHasError,
+                            errorText: _makeErrorText,
                             onChanged: (_) {
-                              if (_modelHasError) {
-                                setState(() => _modelHasError = false);
+                              if (_modelErrorText != null ||
+                                  _modelErrorText!.isNotEmpty) {
+                                setState(() {
+                                  _modelErrorText = null;
+                                });
                               }
                             },
                           ),
 
                           SizedBox(height: AppDimensions.space16.h),
 
-                          AppDropdown(
-                            label: 'Year',
-                            value: _year ?? '',
-                            options: _years,
-                            hint: 'Select year',
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() => _year = value);
-                              }
-                            },
+                          AppTextField(
+                            label: 'Variant',
+                            controller: _variantController,
+                            hint: 'e.g. Swift',
                           ),
 
                           SizedBox(height: AppDimensions.space16.h),
@@ -539,12 +646,34 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                             label: 'Current odometer',
                             controller: _odometerController,
                             hint: 'e.g. 24,500',
-                            suffix: 'km',
-                            hasError: _odometerHasError,
+                            suffix: widget.preferences.distanceUnit,
+                            errorText: _currentOdometerErrorText,
                             keyboardType: TextInputType.number,
                             onChanged: (_) {
-                              if (_odometerHasError) {
-                                setState(() => _odometerHasError = false);
+                              if (_currentOdometerErrorText != null ||
+                                  _currentOdometerErrorText!.isNotEmpty) {
+                                setState(() {
+                                  _currentOdometerErrorText = null;
+                                });
+                              }
+                            },
+                          ),
+
+                          SizedBox(height: AppDimensions.space16.h),
+
+                          AppTextField(
+                            label: 'Tank capacity',
+                            controller: _tankCapacityController,
+                            hint: 'e.g. 35',
+                            suffix: widget.preferences.fuelCapacityUnit,
+                            errorText: _tankCapacityErrorText,
+                            keyboardType: TextInputType.number,
+                            onChanged: (_) {
+                              if (_tankCapacityErrorText != null ||
+                                  _tankCapacityErrorText!.isNotEmpty) {
+                                setState(() {
+                                  _tankCapacityErrorText = null;
+                                });
                               }
                             },
                           ),
@@ -556,10 +685,12 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                             value: _fuelType ?? '',
                             options: fuelTypes,
                             hint: 'Select fuel type',
+                            errorText: _fuelTypeErrorText,
                             onChanged: (value) {
-                              if (value != null) {
-                                setState(() => _fuelType = value);
-                              }
+                              setState(() {
+                                _fuelType = value;
+                                _fuelTypeErrorText = null;
+                              });
                             },
                           ),
 
@@ -572,13 +703,17 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                AppTextField(
+                                AppDatePicker(
                                   label: 'Purchase date',
-                                  controller: _purchaseDateController,
+                                  value: _purchaseDate,
                                   hint: 'e.g. 15 Oct 2023',
-                                  readOnly: true,
-                                  suffixIcon: Icons.calendar_today_outlined,
-                                  onTap: _selectPurchaseDate,
+                                  firstDate: DateTime(1980),
+                                  lastDate: DateTime.now(),
+                                  onChanged: (date) {
+                                    setState(() {
+                                      _purchaseDate = date;
+                                    });
+                                  },
                                 ),
 
                                 SizedBox(height: AppDimensions.space16.h),
@@ -586,19 +721,42 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                                 AppTextField(
                                   label: 'Purchase price',
                                   controller: _purchasePriceController,
+                                  errorText: _purchasePriceErrorText,
                                   hint: 'e.g. 8,50,000',
-                                  prefix: '₹',
+                                  prefix:
+                                      currencySymbols[widget
+                                          .preferences
+                                          .currency] ??
+                                      widget.preferences.currency,
                                   keyboardType: TextInputType.number,
+                                  onChanged: (_) {
+                                    if (_purchasePriceErrorText != null ||
+                                        _purchasePriceErrorText!.isNotEmpty) {
+                                      setState(() {
+                                        _purchasePriceErrorText = null;
+                                      });
+                                    }
+                                  },
                                 ),
 
                                 SizedBox(height: AppDimensions.space16.h),
 
                                 AppTextField(
                                   label: 'Purchase odometer',
+                                  errorText: _purchaseOdometerErrorText,
                                   controller: _purchaseOdometerController,
                                   hint: 'e.g. 12,000',
-                                  suffix: 'km',
+                                  suffix: widget.preferences.distanceUnit,
                                   keyboardType: TextInputType.number,
+                                  onChanged: (_) {
+                                    if (_purchaseOdometerErrorText != null ||
+                                        _purchaseOdometerErrorText!
+                                            .isNotEmpty) {
+                                      setState(() {
+                                        _purchaseOdometerErrorText = null;
+                                      });
+                                    }
+                                  },
                                 ),
 
                                 SizedBox(height: AppDimensions.space20.h),
@@ -614,8 +772,11 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                                   onRemoveDocument: (index) {
                                     setState(() {
                                       if (index >= 0 &&
-                                          index < _purchaseDocuments.length) {
+                                          index < _purchaseDocuments.length &&
+                                          index <
+                                              _selectedPurchaseFiles.length) {
                                         _purchaseDocuments.removeAt(index);
+                                        _selectedPurchaseFiles.removeAt(index);
                                       }
                                     });
                                   },
@@ -627,26 +788,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                             ),
                           ),
 
-                          // SizedBox(height: AppDimensions.space16.h),
-
-                          // AppExpandableSection(
-                          //   title: 'More (optional)',
-                          //   icon: Icons.folder_open_outlined,
-                          //   initiallyExpanded: true,
-                          //   notesController: _notesController,
-                          //   documents: _otherDocuments,
-                          //   onAddDocuments: () {
-                          //     _pickDocuments(_otherDocuments);
-                          //   },
-                          //   onRemoveDocument: (index) {
-                          //     setState(() {
-                          //       if (index >= 0 &&
-                          //           index < _otherDocuments.length) {
-                          //         _otherDocuments.removeAt(index);
-                          //       }
-                          //     });
-                          //   },
-                          // ),
                           SizedBox(height: AppDimensions.space24.h),
                         ],
                       ),
@@ -667,8 +808,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                     constraints: const BoxConstraints(maxWidth: 720),
                     child: AppBottomAction(
                       label: 'Save vehicle',
-                      isLoading: _isSaving,
-                      onPressed: _isSaving ? null : _saveVehicle,
+                      onPressed: _isSaving ? null : _processInputs,
                     ),
                   ),
                 ),
@@ -680,48 +820,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: AppDimensions.space16.w,
-        vertical: AppDimensions.space8.h,
-      ),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(bottom: BorderSide(color: AppColors.divider)),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back),
-            tooltip: 'Go back',
-          ),
-          Expanded(
-            child: Text(
-              'Vehicle Profile Setup',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.cardTitle,
-            ),
-          ),
-          Container(
-            width: AppDimensions.iconExtraLarge.w,
-            height: AppDimensions.iconExtraLarge.w,
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.person_outline,
-              color: Colors.white,
-              size: AppDimensions.iconMedium.sp,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildProgress() {
     return Column(
       children: [
@@ -729,7 +827,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Step 2 of 3',
+              'Step 2 of 2',
               style: AppTextStyles.caption.copyWith(
                 color: AppColors.textPrimary,
                 fontSize: 13.sp,
@@ -747,10 +845,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
             const Expanded(child: _ProgressSegment(color: AppColors.primary)),
             SizedBox(width: AppDimensions.progressGap.w),
             const Expanded(child: _ProgressSegment(color: AppColors.primary)),
-            SizedBox(width: AppDimensions.progressGap.w),
-            const Expanded(
-              child: _ProgressSegment(color: AppColors.progressTrack),
-            ),
           ],
         ),
       ],

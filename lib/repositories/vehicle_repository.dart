@@ -1,3 +1,5 @@
+import 'package:pitfolio/models/attachment.dart';
+import 'package:pitfolio/repositories/attachment_repository.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/db_keys.dart';
@@ -51,11 +53,7 @@ class VehicleRepository {
     return VehicleModel.fromMap(rows.first);
   }
 
-  Future<int> updateVehicle(VehicleModel vehicle) async {
-    if (vehicle.id == null) {
-      throw ArgumentError('Cannot update a vehicle without an ID.');
-    }
-
+  Future<int> updateVehicle(int vehicleId, VehicleModel vehicle) async {
     final db = await LocalDb.instance.database;
 
     final data = vehicle.toMap()
@@ -67,7 +65,7 @@ class VehicleRepository {
       Vehicle.table,
       data,
       where: '${Vehicle.vehicleId} = ?',
-      whereArgs: [vehicle.id],
+      whereArgs: [vehicleId],
     );
   }
 
@@ -79,5 +77,62 @@ class VehicleRepository {
       where: '${Vehicle.vehicleId} = ?',
       whereArgs: [id],
     );
+  }
+
+  Future<bool> addVehicleWithAttachments(
+    VehicleModel vehicle,
+    List<AttachmentModel> attachments,
+  ) async {
+    final db = await LocalDb.instance.database;
+    final now = DateTime.now().toIso8601String();
+
+    try {
+      await db.transaction<void>((txn) async {
+        // 1. Prepare vehicle data
+        final vehicleData = vehicle.toMap()
+          ..remove(Vehicle.vehicleId)
+          ..[Vehicle.createdAt] = now
+          ..[Vehicle.updatedAt] = now;
+
+        // 2. Insert vehicle
+        final vehicleId = await txn.insert(
+          Vehicle.table,
+          vehicleData,
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+
+        // 3. Insert all attachments
+        for (final attachment in attachments) {
+          final attachmentData = attachment.toMap()
+            ..[Attachment.recordId] = vehicleId;
+
+          await AttachmentRepository.instance.addAttachmentTXN(
+            AttachmentModel.fromMap(attachmentData),
+            txn,
+          );
+        }
+      });
+
+      // The transaction committed successfully.
+      return true;
+    } catch (e, stackTrace) {
+      // // Database transaction failed and was rolled back.
+      // print('Failed to save vehicle and attachments: $e');
+      // print(stackTrace);
+
+      // // Delete the files associated with the attachments.
+      // for (final attachment in attachments) {
+      //   try {
+      //     await FileStorageService.deleteFile(attachment.filePath);
+      //   } catch (fileError) {
+      //     print(
+      //       'Failed to delete attachment file '
+      //       '${attachment.filePath}: $fileError',
+      //     );
+      //   }
+      // }
+
+      return false;
+    }
   }
 }

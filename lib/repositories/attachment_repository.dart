@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../core/constants/app_options.dart';
 import '../database/db_keys.dart';
 import '../database/local_db.dart';
 import '../models/attachment.dart';
@@ -11,6 +12,7 @@ class AttachmentRepository {
 
   Future<int> addAttachment(AttachmentModel attachment) async {
     final db = await LocalDb.instance.database;
+
     final data = attachment.toMap()
       ..remove(Attachment.attachmentId)
       ..[Attachment.createdAt] = DateTime.now().toIso8601String();
@@ -24,7 +26,7 @@ class AttachmentRepository {
 
   Future<List<AttachmentModel>> getAttachments({
     required int recordId,
-    required String attachmentType,
+    required AttachmentType attachmentType,
   }) async {
     final db = await LocalDb.instance.database;
 
@@ -35,7 +37,7 @@ class AttachmentRepository {
         ${Attachment.recordId} = ?
         AND ${Attachment.attachmentType} = ?
       ''',
-      whereArgs: [recordId, attachmentType],
+      whereArgs: [recordId, attachmentType.name],
       orderBy: '${Attachment.createdAt} DESC',
     );
 
@@ -64,6 +66,21 @@ class AttachmentRepository {
       Attachment.table,
       where: '${Attachment.attachmentId} = ?',
       whereArgs: [id],
+    );
+  }
+
+  Future<int> addAttachmentTXN(
+    AttachmentModel attachment,
+    Transaction txn,
+  ) async {
+    final data = attachment.toMap()
+      ..remove(Attachment.attachmentId)
+      ..[Attachment.createdAt] = DateTime.now().toIso8601String();
+
+    return txn.insert(
+      Attachment.table,
+      data,
+      conflictAlgorithm: ConflictAlgorithm.abort,
     );
   }
 }

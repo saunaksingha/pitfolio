@@ -97,4 +97,20 @@ class OdometerRepository {
       whereArgs: [id],
     );
   }
+
+  Future<OdometerModel?> getLatestOdometerRecord(int vehicleId) async {
+    final db = await LocalDb.instance.database;
+
+    final rows = await db.query(
+      Odometer.table,
+      where: '${Odometer.vehicleId} = ?',
+      whereArgs: [vehicleId],
+      orderBy: '${Odometer.recordedAt} DESC',
+      limit: 1,
+    );
+
+    if (rows.isEmpty) return null;
+
+    return OdometerModel.fromMap(rows.first);
+  }
 }

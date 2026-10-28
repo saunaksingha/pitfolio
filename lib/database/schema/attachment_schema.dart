@@ -1,6 +1,7 @@
 import '../db_keys.dart';
+import '../../core/constants/app_options.dart';
 
-const String attachmentSchema =
+final String attachmentSchema =
     '''
   CREATE TABLE ${Attachment.table} (
     ${Attachment.attachmentId} INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -14,11 +15,7 @@ const String attachmentSchema =
 
     CHECK (
       ${Attachment.attachmentType} IN (
-        '${AttachmentType.purchaseDocument}',
-        '${AttachmentType.vehicleDocument}',
-        '${AttachmentType.expenseReceipt}',
-        '${AttachmentType.serviceDocument}',
-        '${AttachmentType.noteAttachment}'
+        ${AttachmentType.values.map((type) => "'${type.name}'").join(',\n        ')}
       )
     )
   )

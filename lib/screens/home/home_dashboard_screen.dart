@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil_plus/flutter_screenutil_plus.dart';
+import 'package:pitfolio/core/widgets/vehicle_switcher.dart';
+import 'package:pitfolio/models/vehicle.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimensions.dart';
@@ -85,6 +87,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     ),
   ];
 
+  VehicleModel? _selectedVehicle;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -107,7 +111,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildVehicleCard(),
+                        //   _buildVehicleCard(),
+                        VehicleSwitcher(
+                          onVehicleSelected: (VehicleModel vehicle) {
+                            setState(() {
+                              _selectedVehicle = vehicle;
+                            });
+                          },
+                        ),
                         SizedBox(height: AppDimensions.space20.h),
                         _buildMonthlySummary(),
                         SizedBox(height: AppDimensions.space24.h),
@@ -131,29 +142,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Future<void> _handleQuickAction(QuickAction action) async {
     switch (action) {
       case QuickAction.updateOdometer:
-        final currentReading = int.tryParse(_odometer.replaceAll(',', '')) ?? 0;
-
-        final newReading = await Navigator.of(context).push<int>(
-          MaterialPageRoute(
-            builder: (_) => OdometerUpdateScreen(
-              currentOdometer: currentReading,
-              vehicleName: _vehicleName,
-              make: 'Maruti Suzuki',
-              model: 'Swift',
-              year: _vehicleYear,
-            ),
-          ),
-        );
-
-        if (!mounted || newReading == null) return;
-
-        setState(() {
-          _odometer = _formatOdometer(newReading);
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Odometer updated for this session.')),
-        );
         break;
 
       case QuickAction.addFuel:
@@ -235,30 +223,30 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         );
         break;
       case QuickAction.uploadDocument:
-        Navigator.of(context)
-            .push<VehicleDocumentResult>(
-              MaterialPageRoute(
-                builder: (_) => AddDocumentsScreen(
-                  vehicleName: _vehicleName,
-                  make: 'Maruti Suzuki',
-                  model: 'Swift',
-                  year: _vehicleYear,
-                ),
-              ),
-            )
-            .then((result) {
-              if (result == null || !mounted) return;
+        // Navigator.of(context)
+        //     .push<VehicleDocumentResult>(
+        //       MaterialPageRoute(
+        //         builder: (_) => AddDocumentsScreen(
+        //           vehicleName: _vehicleName,
+        //           make: 'Maruti Suzuki',
+        //           model: 'Swift',
+        //           year: _vehicleYear,
+        //         ),
+        //       ),
+        //     )
+        //     .then((result) {
+        //       if (result == null || !mounted) return;
 
-              // TODO: Save the document through your vehicle document repository.
-              // The document data and selected file paths are available in result.
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Document "${result.documentName}" added successfully.',
-                  ),
-                ),
-              );
-            });
+        //       // TODO: Save the document through your vehicle document repository.
+        //       // The document data and selected file paths are available in result.
+        //       ScaffoldMessenger.of(context).showSnackBar(
+        //         SnackBar(
+        //           content: Text(
+        //             'Document "${result.documentName}" added successfully.',
+        //           ),
+        //         ),
+        //       );
+        //     });
         break;
       case QuickAction.addNote:
         Navigator.of(context)
@@ -285,13 +273,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             });
         break;
     }
-  }
-
-  String _formatOdometer(int value) {
-    return value.toString().replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (match) => '${match[1]},',
-    );
   }
 
   // ---------------------------------------------------------------------------
@@ -369,160 +350,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   // Vehicle summary card
   // ---------------------------------------------------------------------------
 
-  Widget _buildVehicleCard() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(AppDimensions.space16.w),
-      decoration: BoxDecoration(
-        color: const Color(0xFF20232B),
-        borderRadius: BorderRadius.circular(16.r),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40.w,
-                height: 40.w,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2C313C),
-                  borderRadius: AppRadius.mediumRadius,
-                ),
-                child: Icon(
-                  Icons.directions_car_filled_outlined,
-                  color: AppColors.primary,
-                  size: AppDimensions.iconLarge.sp,
-                ),
-              ),
-              SizedBox(width: AppDimensions.space12.w),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            _vehicleName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.cardTitle.copyWith(
-                              color: Colors.white,
-                              fontSize: 15.sp,
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: AppDimensions.space8.w),
-                        Container(
-                          width: 8.w,
-                          height: 8.w,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF10B981),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: AppDimensions.space2.h),
-                    Text(
-                      '$_vehicleMakeModel · $_vehicleYear',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.caption.copyWith(
-                        color: const Color(0xFF9BA3B4),
-                        fontSize: 12.sp,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.keyboard_arrow_down,
-                color: const Color(0xFF9BA3B4),
-                size: AppDimensions.iconMedium.sp,
-              ),
-            ],
-          ),
-          SizedBox(height: AppDimensions.space12.h),
-          Container(height: 1, color: const Color(0xFF343944)),
-          SizedBox(height: AppDimensions.space12.h),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ODOMETER',
-                      style: AppTextStyles.caption.copyWith(
-                        color: const Color(0xFF9BA3B4),
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.7,
-                      ),
-                    ),
-                    SizedBox(height: AppDimensions.space4.h),
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: _odometer,
-                            style: AppTextStyles.cardTitle.copyWith(
-                              color: Colors.white,
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          TextSpan(
-                            text: ' km',
-                            style: AppTextStyles.caption.copyWith(
-                              color: const Color(0xFF9BA3B4),
-                              fontSize: 11.sp,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppDimensions.space8.w,
-                  vertical: AppDimensions.space8.h,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF12362F),
-                  borderRadius: BorderRadius.circular(AppRadius.pill),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.trending_up,
-                      color: const Color(0xFF10B981),
-                      size: 14.sp,
-                    ),
-                    SizedBox(width: AppDimensions.space4.w),
-                    Text(
-                      '+45 km this week',
-                      style: AppTextStyles.caption.copyWith(
-                        color: const Color(0xFF10B981),
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   // ---------------------------------------------------------------------------
   // Monthly summary cards
   // ---------------------------------------------------------------------------
@@ -592,10 +419,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   // ---------------------------------------------------------------------------
   // Bottom navigation
   // ---------------------------------------------------------------------------
-
-  void _onAddEntry() {
-    _showComingSoon('Add logbook entry');
-  }
 
   void _showComingSoon(String feature) {
     ScaffoldMessenger.of(context).showSnackBar(

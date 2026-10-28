@@ -422,7 +422,7 @@ class _ServiceRepairScreenState extends State<ServiceRepairScreen> {
                     children: [
                       AppBottomAction(
                         label: 'Save service record',
-                        isLoading: _isSaving,
+
                         onPressed: _isSaving ? null : _saveService,
                       ),
                       TextButton(
@@ -600,7 +600,7 @@ class _ServiceRepairScreenState extends State<ServiceRepairScreen> {
       suffix: 'km',
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      hasError: _odometerHasError,
+      //  hasError: _odometerHasError,
       onChanged: (_) {
         if (_odometerHasError) {
           setState(() => _odometerHasError = false);
@@ -619,7 +619,7 @@ class _ServiceRepairScreenState extends State<ServiceRepairScreen> {
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
       ],
-      hasError: _costHasError,
+      //  hasError: _costHasError,
       onChanged: (_) {
         if (_costHasError) {
           setState(() => _costHasError = false);

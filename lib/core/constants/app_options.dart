@@ -5,8 +5,15 @@ library;
 const Map<String, String> currencies = {
   'INR': 'Indian Rupee (₹)',
   'USD': 'US Dollar (\$)',
-  'SAR': 'Saudi Riyal',
+  'SAR': 'Saudi Riyal (﷼)',
   'EUR': 'Euro (€)',
+};
+
+const Map<String, String> currencySymbols = {
+  'INR': '₹',
+  'USD': r'$',
+  'SAR': '﷼',
+  'EUR': '€',
 };
 
 const Map<String, String> distanceUnits = {
@@ -28,13 +35,15 @@ const Map<String, String> fuelTypes = {
   'lpg': 'LPG',
 };
 
-const Map<String, String> documentTypes = {
-  'insurance': 'Insurance',
-  'rc': 'Registration Certificate (RC)',
-  'puc': 'Pollution Certificate (PUC)',
-  'driving_licence': 'Driving Licence',
-  'service_record': 'Service Record',
-  'warranty': 'Warranty',
-  'purchase_invoice': 'Purchase Invoice',
-  'other': 'Other',
-};
+enum AttachmentType {
+  vehiclePhoto,
+  purchaseDocument,
+  insurance,
+  rc,
+  puc,
+  drivingLicence,
+  serviceRecord,
+  warranty,
+  purchaseInvoice,
+  other,
+}

@@ -6,17 +6,22 @@ import '../theme/app_dimensions.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 
-class AppBottomAction extends StatelessWidget {
+class AppBottomAction extends StatefulWidget {
   final String label;
-  final VoidCallback? onPressed;
-  final bool isLoading;
+  final Future<void> Function()? onPressed;
 
   const AppBottomAction({
     super.key,
     required this.label,
     required this.onPressed,
-    this.isLoading = false,
   });
+
+  @override
+  State<AppBottomAction> createState() => _AppBottomActionState();
+}
+
+class _AppBottomActionState extends State<AppBottomAction> {
+  bool isLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +32,25 @@ class AppBottomAction extends StatelessWidget {
           width: double.infinity,
           height: AppDimensions.buttonHeight.h,
           child: ElevatedButton(
-            onPressed: isLoading ? null : onPressed,
+            onPressed: isLoading
+                ? null
+                : () async {
+                    if (widget.onPressed == null) return;
+
+                    setState(() {
+                      isLoading = true;
+                    });
+
+                    try {
+                      await widget.onPressed!();
+                    } finally {
+                      if (mounted) {
+                        setState(() {
+                          isLoading = false;
+                        });
+                      }
+                    }
+                  },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
@@ -46,7 +69,7 @@ class AppBottomAction extends StatelessWidget {
                       color: Colors.white,
                     ),
                   )
-                : Text(label),
+                : Text(widget.label),
           ),
         ),
         SizedBox(height: AppDimensions.space16.h),

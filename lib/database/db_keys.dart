@@ -15,47 +15,39 @@ class Attachment {
   static const String createdAt = 'created_at';
 }
 
-class AttachmentType {
-  AttachmentType._();
-
-  static const String purchaseDocument = 'purchase_document';
-  static const String vehicleDocument = 'vehicle_document';
-  static const String expenseReceipt = 'expense_receipt';
-  static const String serviceDocument = 'service_document';
-  static const String noteAttachment = 'note_attachment';
-
-  static const List<String> values = [
-    purchaseDocument,
-    vehicleDocument,
-    expenseReceipt,
-    serviceDocument,
-    noteAttachment,
-  ];
-}
-
 class Vehicle {
   Vehicle._();
 
   static const String table = 'vehicles';
 
+  // Primary key
   static const String vehicleId = 'id';
 
+  // Basic vehicle details
   static const String name = 'name';
   static const String make = 'make';
   static const String model = 'model';
   static const String variant = 'variant';
 
+  // Vehicle specifications
   static const String currentOdometer = 'current_odometer';
-
   static const String fuelType = 'fuel_type';
+  static const String fuelTankCapacity = 'fuel_tank_capacity';
+
+  // App display preferences
+  static const String currency = 'currency';
+  static const String fuelUnit = 'fuel_unit';
+  static const String distanceUnit = 'distance_unit';
 
   // Purchase details
   static const String purchaseDate = 'purchase_date';
   static const String purchasePrice = 'purchase_price';
   static const String purchaseOdometer = 'purchase_odometer';
 
+  // Vehicle image
   static const String photoPath = 'photo_path';
 
+  // Timestamps
   static const String createdAt = 'created_at';
   static const String updatedAt = 'updated_at';
 }
@@ -174,21 +166,6 @@ class Document {
   static const String expiryDate = 'expiry_date';
 
   static const String notes = 'notes';
-
-  static const String createdAt = 'created_at';
-  static const String updatedAt = 'updated_at';
-}
-
-class Preference {
-  Preference._();
-
-  static const String table = 'preferences';
-
-  static const String preferenceId = 'id';
-
-  static const String currency = 'currency';
-  static const String distanceUnit = 'distance_unit';
-  static const String fuelUnit = 'fuel_unit';
 
   static const String createdAt = 'created_at';
   static const String updatedAt = 'updated_at';

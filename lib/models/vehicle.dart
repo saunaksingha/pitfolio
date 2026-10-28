@@ -2,22 +2,36 @@ import '../database/db_keys.dart';
 
 class VehicleModel {
   final int? id;
+
+  // Basic vehicle details
   final String name;
   final String make;
   final String model;
   final String? variant;
+
+  // Vehicle specifications
   final int currentOdometer;
   final String fuelType;
+  final double fuelTankCapacity;
 
+  // Display preferences
+  final String currency;
+  final String fuelUnit;
+  final String distanceUnit;
+
+  // Purchase details
   final String? purchaseDate;
   final double? purchasePrice;
   final int? purchaseOdometer;
 
-  final String? photoPath;
-  final String createdAt;
-  final String updatedAt;
+  // Vehicle image
+  String? photoPath;
 
-  const VehicleModel({
+  // Timestamps
+  String? createdAt;
+  String? updatedAt;
+
+  VehicleModel({
     this.id,
     required this.name,
     required this.make,
@@ -25,12 +39,16 @@ class VehicleModel {
     this.variant,
     required this.currentOdometer,
     required this.fuelType,
+    required this.fuelTankCapacity,
+    required this.currency,
+    required this.fuelUnit,
+    required this.distanceUnit,
     this.purchaseDate,
     this.purchasePrice,
     this.purchaseOdometer,
     this.photoPath,
-    required this.createdAt,
-    required this.updatedAt,
+    this.createdAt,
+    this.updatedAt,
   });
 
   Map<String, dynamic> toMap() {
@@ -42,6 +60,10 @@ class VehicleModel {
       Vehicle.variant: variant,
       Vehicle.currentOdometer: currentOdometer,
       Vehicle.fuelType: fuelType,
+      Vehicle.fuelTankCapacity: fuelTankCapacity,
+      Vehicle.currency: currency,
+      Vehicle.fuelUnit: fuelUnit,
+      Vehicle.distanceUnit: distanceUnit,
       Vehicle.purchaseDate: purchaseDate,
       Vehicle.purchasePrice: purchasePrice,
       Vehicle.purchaseOdometer: purchaseOdometer,
@@ -60,6 +82,10 @@ class VehicleModel {
       variant: map[Vehicle.variant] as String?,
       currentOdometer: map[Vehicle.currentOdometer] as int,
       fuelType: map[Vehicle.fuelType] as String,
+      fuelTankCapacity: (map[Vehicle.fuelTankCapacity] as num?)!.toDouble(),
+      currency: map[Vehicle.currency] as String,
+      fuelUnit: map[Vehicle.fuelUnit] as String,
+      distanceUnit: map[Vehicle.distanceUnit] as String,
       purchaseDate: map[Vehicle.purchaseDate] as String?,
       purchasePrice: (map[Vehicle.purchasePrice] as num?)?.toDouble(),
       purchaseOdometer: map[Vehicle.purchaseOdometer] as int?,

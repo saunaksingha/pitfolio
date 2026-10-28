@@ -10,15 +10,18 @@ class AppDropdown extends StatelessWidget {
   final String label;
 
   /// The selected key, e.g. 'INR', 'km', or 'L'.
+  /// Use an empty string when nothing is selected.
   final String value;
 
   /// Raw options map: key = stored value, value = displayed label.
-  /// Example: {'INR': 'Indian Rupee (₹)', 'USD': 'US Dollar (\$)'}
   final Map<String, String> options;
 
   final ValueChanged<String?> onChanged;
   final String? hint;
   final bool enabled;
+
+  /// Error message displayed below the dropdown.
+  final String? errorText;
 
   const AppDropdown({
     super.key,
@@ -28,24 +31,35 @@ class AppDropdown extends StatelessWidget {
     required this.onChanged,
     this.hint,
     this.enabled = true,
+    this.errorText,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Avoid a dropdown assertion if the selected key isn't in options.
-    final selectedValue = options.containsKey(value) ? value : null;
+    final selectedValue = value.isNotEmpty && options.containsKey(value)
+        ? value
+        : null;
+
+    final message = errorText?.trim();
+    final showError = message != null && message.isNotEmpty;
+
+    final Color secondaryColor = enabled
+        ? AppColors.textSecondary
+        : AppColors.textDisabled;
+
+    final Color borderColor = showError ? AppColors.error : AppColors.border;
 
     OutlineInputBorder outlineBorder({required Color color, double width = 1}) {
       return OutlineInputBorder(
-        borderRadius: AppRadius.mediumRadius,
+        borderRadius: AppRadius.largeRadius,
         borderSide: BorderSide(color: color, width: width),
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Don't create an empty label or its vertical gap.
         if (label.isNotEmpty) ...[
           Text(
             label,
@@ -59,34 +73,78 @@ class AppDropdown extends StatelessWidget {
         DropdownButtonFormField<String>(
           initialValue: selectedValue,
           isExpanded: true,
-          hint: hint == null ? null : Text(hint!),
+
+          hint: hint == null
+              ? null
+              : Text(
+                  hint!,
+                  style: AppTextStyles.body.copyWith(
+                    color: AppColors.textDisabled,
+                  ),
+                ),
+
           icon: Icon(
             Icons.keyboard_arrow_down_rounded,
             size: AppDimensions.iconLarge.sp,
-            color: AppColors.textSecondary,
+            color: secondaryColor,
           ),
+
           style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
+
           decoration: InputDecoration(
-            hintText: hint,
             filled: true,
             fillColor: enabled ? AppColors.surface : AppColors.surfaceSecondary,
+
             contentPadding: EdgeInsets.symmetric(
-              horizontal: AppDimensions.space16.w,
-              vertical: AppDimensions.space16.h,
+              horizontal: AppDimensions.space12.w,
+              vertical: AppDimensions.space12.h,
             ),
+
             border: outlineBorder(color: AppColors.border),
-            enabledBorder: outlineBorder(color: AppColors.border),
-            focusedBorder: outlineBorder(color: AppColors.primary, width: 1.5),
-            disabledBorder: outlineBorder(color: AppColors.border),
+
+            enabledBorder: outlineBorder(color: borderColor),
+
+            focusedBorder: outlineBorder(
+              color: showError ? AppColors.error : AppColors.primary,
+              width: 1.4,
+            ),
+
+            errorBorder: outlineBorder(color: AppColors.error),
+
+            focusedErrorBorder: outlineBorder(
+              color: AppColors.error,
+              width: 1.4,
+            ),
+
+            disabledBorder: outlineBorder(color: borderColor),
           ),
+
           items: options.entries.map((entry) {
             return DropdownMenuItem<String>(
               value: entry.key,
               child: Text(entry.value, overflow: TextOverflow.ellipsis),
             );
           }).toList(),
+
           onChanged: enabled ? onChanged : null,
         ),
+
+        if (showError) ...[
+          SizedBox(height: AppDimensions.space4.h),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.error_outline, size: 16.sp, color: AppColors.error),
+              SizedBox(width: AppDimensions.space4.w),
+              Expanded(
+                child: Text(
+                  message,
+                  style: AppTextStyles.caption.copyWith(color: AppColors.error),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }

@@ -16,7 +16,7 @@ class DocumentDetailsScreen extends StatelessWidget {
   final String? expiryDate;
   final String filePath;
 
-  final VoidCallback? onViewDocument;
+  final Future<void>? onViewDocument;
   final VoidCallback? onShareDocument;
   final VoidCallback? onReplaceDocument;
   final VoidCallback? onSaveCopy;
@@ -290,12 +290,12 @@ class DocumentDetailsScreen extends StatelessWidget {
             ),
           ),
           SizedBox(height: AppDimensions.space16.h),
-          _actionRow(
-            icon: Icons.visibility_outlined,
-            title: 'View document',
-            subtitle: 'Open the PDF or image',
-            onTap: onViewDocument,
-          ),
+          // _actionRow(
+          //   icon: Icons.visibility_outlined,
+          //   title: 'View document',
+          //   subtitle: 'Open the PDF or image',
+          //   onTap: onViewDocument,
+          // ),
           Divider(height: AppDimensions.space24.h),
           _actionRow(
             icon: Icons.swap_horiz,
@@ -374,7 +374,7 @@ class DocumentDetailsScreen extends StatelessWidget {
         color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.divider)),
       ),
-      child: AppBottomAction(label: 'View document', onPressed: onViewDocument),
+      // child: AppBottomAction(label: 'View document', onPressed: onViewDocument),
     );
   }
 }

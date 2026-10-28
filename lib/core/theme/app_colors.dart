@@ -28,7 +28,7 @@ abstract final class AppColors {
   // Feedback
   static const Color success = Color(0xFF27845B);
   static const Color successSoft = Color(0xFFE7F5ED);
-  static const Color error = Color(0xFFB42318);
+  static const Color error = Color(0xFFD64545);
   static const Color errorSoft = Color(0xFFFDECEC);
   static const Color warning = Color(0xFFB76E00);
   static const Color warningSoft = Color(0xFFFFF4D9);
