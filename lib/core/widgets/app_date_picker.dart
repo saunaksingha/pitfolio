@@ -11,10 +11,7 @@ class AppDatePicker extends StatelessWidget {
   final DateTime? value;
   final ValueChanged<DateTime> onChanged;
 
-  /// Earliest selectable date.
   final DateTime firstDate;
-
-  /// Latest selectable date.
   final DateTime lastDate;
 
   final String? hint;
@@ -23,7 +20,6 @@ class AppDatePicker extends StatelessWidget {
   final DateTime? initialDate;
   final DateTime? currentDate;
 
-  /// Optional custom display formatter.
   final String Function(DateTime date)? dateFormatter;
 
   const AppDatePicker({
@@ -41,7 +37,6 @@ class AppDatePicker extends StatelessWidget {
     this.dateFormatter,
   });
 
-  /// Displays dates like 20th Oct, 2026.
   String _defaultDateFormatter(DateTime date) {
     const months = [
       'Jan',
@@ -78,17 +73,13 @@ class AppDatePicker extends StatelessWidget {
 
   DateTime _getInitialDate() {
     final preferredDate = value ?? initialDate ?? currentDate ?? DateTime.now();
+
     final normalizedDate = _dateOnly(preferredDate);
     final first = _dateOnly(firstDate);
     final last = _dateOnly(lastDate);
 
-    if (normalizedDate.isBefore(first)) {
-      return first;
-    }
-
-    if (normalizedDate.isAfter(last)) {
-      return last;
-    }
+    if (normalizedDate.isBefore(first)) return first;
+    if (normalizedDate.isAfter(last)) return last;
 
     return normalizedDate;
   }
@@ -129,21 +120,29 @@ class AppDatePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasError = errorText != null && errorText!.trim().isNotEmpty;
+    final message = errorText?.trim();
+    final showError = message != null && message.isNotEmpty;
 
     final displayText = value == null
         ? null
         : (dateFormatter ?? _defaultDateFormatter)(value!);
 
+    final secondaryColor = enabled
+        ? AppColors.textSecondary
+        : AppColors.textDisabled;
+
+    final decorationColor = showError ? AppColors.error : AppColors.border;
+
     OutlineInputBorder outlineBorder({required Color color, double width = 1}) {
       return OutlineInputBorder(
-        borderRadius: AppRadius.mediumRadius,
+        borderRadius: AppRadius.largeRadius,
         borderSide: BorderSide(color: color, width: width),
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         if (label.isNotEmpty) ...[
           Text(
@@ -154,61 +153,76 @@ class AppDatePicker extends StatelessWidget {
           ),
           SizedBox(height: AppDimensions.space8.h),
         ],
-        InkWell(
-          onTap: enabled ? () => _selectDate(context) : null,
-          borderRadius: AppRadius.mediumRadius,
-          child: InputDecorator(
-            isEmpty: displayText == null,
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: enabled
-                  ? AppColors.surface
-                  : AppColors.surfaceSecondary,
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: AppDimensions.space16.w,
-                vertical: AppDimensions.space16.h,
+
+        Material(
+          color: Colors.transparent,
+          borderRadius: AppRadius.largeRadius,
+          child: InkWell(
+            onTap: enabled ? () => _selectDate(context) : null,
+            borderRadius: AppRadius.largeRadius,
+            child: InputDecorator(
+              isEmpty: displayText == null,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: enabled
+                    ? AppColors.surface
+                    : AppColors.surfaceSecondary,
+
+                // Match AppTextField's padding.
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: AppDimensions.space12.w,
+                  vertical: AppDimensions.space12.h,
+                ),
+
+                // Render the error below the field, just like AppTextField.
+                border: outlineBorder(color: AppColors.border),
+                enabledBorder: outlineBorder(color: decorationColor),
+                focusedBorder: outlineBorder(
+                  color: showError ? AppColors.error : AppColors.primary,
+                  width: 1.4,
+                ),
+                disabledBorder: outlineBorder(color: decorationColor),
               ),
-              errorText: hasError ? errorText!.trim() : null,
-              errorMaxLines: 2,
-              border: outlineBorder(color: AppColors.border),
-              enabledBorder: outlineBorder(
-                color: hasError ? AppColors.error : AppColors.border,
-                width: hasError ? 1.5 : 1,
-              ),
-              focusedBorder: outlineBorder(
-                color: hasError ? AppColors.error : AppColors.primary,
-                width: 1.5,
-              ),
-              errorBorder: outlineBorder(color: AppColors.error, width: 1.5),
-              focusedErrorBorder: outlineBorder(
-                color: AppColors.error,
-                width: 1.5,
-              ),
-              disabledBorder: outlineBorder(
-                color: hasError ? AppColors.error : AppColors.border,
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    displayText ?? hint ?? 'Select date',
-                    style: AppTextStyles.body.copyWith(
-                      color: displayText == null
-                          ? AppColors.textSecondary
-                          : AppColors.textPrimary,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      displayText ?? hint ?? 'Select date',
+                      style: AppTextStyles.body.copyWith(
+                        color: displayText == null
+                            ? AppColors.textDisabled
+                            : AppColors.textPrimary,
+                      ),
                     ),
                   ),
-                ),
-                Icon(
-                  Icons.calendar_today_outlined,
-                  size: AppDimensions.iconLarge.sp,
-                  color: AppColors.textSecondary,
-                ),
-              ],
+                  SizedBox(width: AppDimensions.space8.w),
+                  Icon(
+                    Icons.calendar_today_outlined,
+                    size: AppDimensions.iconMedium.sp,
+                    color: secondaryColor,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
+
+        if (showError) ...[
+          SizedBox(height: AppDimensions.space4.h),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.error_outline, size: 16.sp, color: AppColors.error),
+              SizedBox(width: AppDimensions.space4.w),
+              Expanded(
+                child: Text(
+                  message,
+                  style: AppTextStyles.caption.copyWith(color: AppColors.error),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }

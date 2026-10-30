@@ -10,7 +10,7 @@ class VehicleModel {
   final String? variant;
 
   // Vehicle specifications
-  final int currentOdometer;
+  int currentOdometer;
   final String fuelType;
   final double fuelTankCapacity;
 

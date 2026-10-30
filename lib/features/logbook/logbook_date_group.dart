@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil_plus/flutter_screenutil_plus.dart';
 
-import '../theme/app_colors.dart';
-import '../theme/app_dimensions.dart';
-import '../theme/app_text_styles.dart';
-import '../../models/logbook_entry.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_dimensions.dart';
+import '../../core/theme/app_text_styles.dart';
+import 'models/logbook_entry.dart';
 import 'logbook_item.dart';
 
 class LogbookDateGroup extends StatelessWidget {

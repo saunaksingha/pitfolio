@@ -47,3 +47,13 @@ enum AttachmentType {
   purchaseInvoice,
   other,
 }
+
+enum RecordType {
+  odometer,
+  fuel,
+  expense,
+  maintenance,
+  reminder,
+  document,
+  note,
+}

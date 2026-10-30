@@ -6,7 +6,7 @@ class OdometerModel {
   final int odometerReading;
   final String recordedAt;
   final String? notes;
-  final String createdAt;
+  final String? createdAt;
 
   const OdometerModel({
     this.id,
@@ -14,7 +14,7 @@ class OdometerModel {
     required this.odometerReading,
     required this.recordedAt,
     this.notes,
-    required this.createdAt,
+    this.createdAt,
   });
 
   Map<String, dynamic> toMap() {

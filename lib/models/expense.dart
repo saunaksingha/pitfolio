@@ -59,3 +59,17 @@ class ExpenseModel {
     );
   }
 }
+
+enum ExpenseCategory {
+  insurance,
+  repair,
+  parking,
+  toll,
+  cleaning,
+  accessories,
+  tax,
+  fines,
+  other,
+}
+
+enum PaymentMethod { upi, cash, card, netBanking, bankTransfer, other }

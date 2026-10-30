@@ -2,6 +2,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil_plus/flutter_screenutil_plus.dart';
+import 'package:pitfolio/core/widgets/app_category_picker.dart';
+import 'package:pitfolio/features/config/category_styles.dart';
+import 'package:pitfolio/models/expense.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimensions.dart';
@@ -30,7 +33,7 @@ class ExpenseResult {
     required this.receipts,
   });
 
-  final String category;
+  final ExpenseCategory category;
   final String description;
   final double amount;
   final DateTime datePaid;
@@ -70,7 +73,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _notesController = TextEditingController();
   final _occurrencesController = TextEditingController(text: '12');
 
-  String _category = 'insurance';
+  ExpenseCategory _category = ExpenseCategory.insurance;
   String _paymentMethod = 'upi';
 
   bool _isRecurring = true;
@@ -83,23 +86,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   DateTime? _endDate;
 
   bool _isSaving = false;
-  bool _amountHasError = false;
 
   final List<AppDocumentItem> _receipts = [];
-
-  static const Map<String, String> _categories = {
-    'insurance': 'Insurance',
-    'maintenance': 'Maintenance',
-    'repair': 'Repair',
-    'fuel': 'Fuel',
-    'parking': 'Parking',
-    'toll': 'Toll',
-    'cleaning': 'Cleaning',
-    'accessories': 'Accessories',
-    'tax': 'Road tax',
-    'fines': 'Fines',
-    'other': 'Other',
-  };
 
   static const Map<String, String> _paymentMethods = {
     'upi': 'UPI',
@@ -345,72 +333,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
   }
 
-  Future<void> _saveExpense() async {
-    if (_isSaving) return;
-
-    final amount = double.tryParse(
-      _amountController.text.replaceAll(',', '').trim(),
-    );
-
-    final amountInvalid = amount == null || amount <= 0;
-    final occurrences = int.tryParse(_occurrencesController.text.trim());
-
-    final occurrencesInvalid =
-        _isRecurring &&
-        _endType == 'after' &&
-        (occurrences == null || occurrences <= 0);
-
-    final endDateInvalid =
-        _isRecurring &&
-        _endType == 'on_date' &&
-        (_endDate == null || _endDate!.isBefore(_startsOn));
-
-    setState(() => _amountHasError = amountInvalid);
-
-    if (amountInvalid) {
-      _showSnackBar('Enter an amount greater than zero.');
-      return;
-    }
-
-    if (occurrencesInvalid) {
-      _showSnackBar('Enter a valid number of recurring payments.');
-      return;
-    }
-
-    if (endDateInvalid) {
-      _showSnackBar('Choose an end date on or after the start date.');
-      return;
-    }
-
-    setState(() => _isSaving = true);
-
-    try {
-      final expense = ExpenseResult(
-        category: _category,
-        description: _descriptionController.text.trim(),
-        amount: amount,
-        datePaid: _datePaid,
-        paymentMethod: _paymentMethod,
-        isRecurring: _isRecurring,
-        repeatFrequency: _repeatFrequency,
-        repeatDay: _repeatDay,
-        startsOn: _startsOn,
-        endType: _isRecurring ? _endType : 'never',
-        endDate: _isRecurring && _endType == 'on_date' ? _endDate : null,
-        occurrences: _isRecurring && _endType == 'after' ? occurrences : null,
-        notes: _notesController.text.trim(),
-        receipts: List.unmodifiable(_receipts),
-      );
-
-      if (!mounted) return;
-      Navigator.of(context).pop<ExpenseResult>(expense);
-    } catch (_) {
-      if (!mounted) return;
-      _showSnackBar('Unable to save the expense. Please try again.');
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
-  }
+  Future<void> _saveExpense() async {}
 
   @override
   Widget build(BuildContext context) {
@@ -434,7 +357,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildVehicleCard(),
                         SizedBox(height: AppDimensions.space24.h),
                         Text(
                           'Record an expense',
@@ -449,17 +371,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         ),
                         SizedBox(height: AppDimensions.space24.h),
 
-                        AppDropdown(
+                        AppCategoryPicker<ExpenseCategory>(
                           label: 'Expense category',
                           value: _category,
-                          options: _categories,
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() => _category = value);
-                            }
+                          options: expenseCategoryStyles,
+                          onChanged: (category) {
+                            setState(() {
+                              _category = category;
+                            });
                           },
+                          sheetTitle: 'Choose expense category',
+                          sheetSubtitle:
+                              'Select the category that best describes this expense.',
                         ),
-
                         SizedBox(height: AppDimensions.space16.h),
 
                         AppTextField(
@@ -469,29 +393,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         ),
 
                         SizedBox(height: AppDimensions.space16.h),
-
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            if (constraints.maxWidth < 340) {
-                              return Column(
-                                children: [
-                                  _buildAmountField(),
-                                  SizedBox(height: AppDimensions.space16.h),
-                                  _buildPaidDateField(),
-                                ],
-                              );
-                            }
-
-                            return Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(child: _buildAmountField()),
-                                SizedBox(width: AppDimensions.space12.w),
-                                Expanded(child: _buildPaidDateField()),
-                              ],
-                            );
-                          },
-                        ),
 
                         SizedBox(height: AppDimensions.space16.h),
 
@@ -611,130 +512,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
-  Widget _buildVehicleCard() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(AppDimensions.space12.w),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
-        borderRadius: AppRadius.largeRadius,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40.w,
-            height: 40.w,
-            decoration: BoxDecoration(
-              color: AppColors.primarySoft,
-              borderRadius: AppRadius.mediumRadius,
-            ),
-            child: Icon(
-              Icons.directions_car_filled_outlined,
-              color: AppColors.primary,
-              size: AppDimensions.iconLarge.sp,
-            ),
-          ),
-          SizedBox(width: AppDimensions.space12.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.vehicleName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.cardTitle.copyWith(fontSize: 14.sp),
-                ),
-                Text(
-                  '${widget.make} ${widget.model}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.caption.copyWith(fontSize: 12.sp),
-                ),
-                Text(
-                  '${widget.model} · ${widget.year}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.caption.copyWith(fontSize: 12.sp),
-                ),
-              ],
-            ),
-          ),
-          Icon(
-            Icons.unfold_more,
-            color: AppColors.textSecondary,
-            size: AppDimensions.iconMedium.sp,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAmountField() {
-    return AppTextField(
-      label: 'Amount',
-      controller: _amountController,
-      hint: '2,500.00',
-      prefix: '₹',
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-      ],
-      //  hasError: _amountHasError,
-      onChanged: (_) {
-        if (_amountHasError) {
-          setState(() => _amountHasError = false);
-        }
-      },
-    );
-  }
-
-  Widget _buildPaidDateField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Date paid',
-          style: AppTextStyles.fieldLabel.copyWith(
-            color: AppColors.textPrimary,
-          ),
-        ),
-        SizedBox(height: AppDimensions.space8.h),
-        InkWell(
-          onTap: _selectPaidDate,
-          borderRadius: AppRadius.largeRadius,
-          child: Container(
-            height: AppDimensions.inputHeight.h,
-            padding: EdgeInsets.symmetric(horizontal: AppDimensions.space12.w),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              border: Border.all(color: AppColors.border),
-              borderRadius: AppRadius.largeRadius,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _formatDate(_datePaid, includeToday: true),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.body.copyWith(fontSize: 13.sp),
-                  ),
-                ),
-                Icon(
-                  Icons.calendar_today_outlined,
-                  size: AppDimensions.iconMedium.sp,
-                  color: AppColors.textSecondary,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildRecurringSection() {
     return Container(
       decoration: BoxDecoration(
@@ -829,29 +606,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     },
                   ),
                   SizedBox(height: AppDimensions.space16.h),
-                  _buildDateSelector(
-                    label: 'Starts on',
-                    date: _startsOn,
-                    onTap: _selectStartDate,
-                  ),
-                  SizedBox(height: AppDimensions.space16.h),
-                  Text(
-                    'Ends',
-                    style: AppTextStyles.fieldLabel.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  SizedBox(height: AppDimensions.space8.h),
-                  _buildEndTypeSelector(),
-                  if (_endType == 'on_date') ...[
-                    SizedBox(height: AppDimensions.space16.h),
-                    _buildDateSelector(
-                      label: 'End date',
-                      date: _endDate,
-                      placeholder: 'Select end date',
-                      onTap: _selectEndDate,
-                    ),
-                  ],
+
                   if (_endType == 'after') ...[
                     SizedBox(height: AppDimensions.space16.h),
                     AppTextField(
@@ -867,105 +622,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildDateSelector({
-    required String label,
-    required DateTime? date,
-    required VoidCallback onTap,
-    String placeholder = 'Select date',
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTextStyles.fieldLabel.copyWith(
-            color: AppColors.textPrimary,
-          ),
-        ),
-        SizedBox(height: AppDimensions.space8.h),
-        InkWell(
-          onTap: onTap,
-          borderRadius: AppRadius.largeRadius,
-          child: Container(
-            height: AppDimensions.inputHeight.h,
-            padding: EdgeInsets.symmetric(horizontal: AppDimensions.space12.w),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              border: Border.all(color: AppColors.border),
-              borderRadius: AppRadius.largeRadius,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    date == null ? placeholder : _formatDate(date),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.body.copyWith(fontSize: 13.sp),
-                  ),
-                ),
-                Icon(
-                  Icons.calendar_today_outlined,
-                  color: AppColors.textSecondary,
-                  size: AppDimensions.iconMedium.sp,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEndTypeSelector() {
-    return Container(
-      padding: EdgeInsets.all(4.w),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceSecondary,
-        border: Border.all(color: AppColors.border),
-        borderRadius: AppRadius.largeRadius,
-      ),
-      child: Row(
-        children: _endOptions.entries.map((entry) {
-          final selected = _endType == entry.key;
-
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _endType = entry.key),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: EdgeInsets.symmetric(vertical: 10.h),
-                decoration: BoxDecoration(
-                  color: selected ? AppColors.surface : Colors.transparent,
-                  borderRadius: AppRadius.mediumRadius,
-                  boxShadow: selected
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 4,
-                          ),
-                        ]
-                      : null,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  entry.value,
-                  style: AppTextStyles.body.copyWith(
-                    fontSize: 12.sp,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                    color: selected
-                        ? AppColors.textPrimary
-                        : AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
       ),
     );
   }

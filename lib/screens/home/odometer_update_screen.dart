@@ -1,41 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil_plus/flutter_screenutil_plus.dart';
+import 'package:pitfolio/core/widgets/app_date_picker.dart';
+import 'package:pitfolio/models/odometer.dart';
+import 'package:pitfolio/models/vehicle.dart';
+import 'package:pitfolio/repositories/odometer_repository.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimensions.dart';
-import '../../core/theme/app_radius.dart';
+
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/app_bottom_action.dart';
 import '../../core/widgets/app_text_field.dart';
 
 class OdometerUpdateScreen extends StatefulWidget {
-  const OdometerUpdateScreen({
-    super.key,
-    required this.currentOdometer,
-    required this.vehicleName,
-    required this.make,
-    required this.model,
-    required this.year,
-  });
+  const OdometerUpdateScreen({super.key, required this._selectedVehicleModel});
 
-  final int currentOdometer;
-  final String vehicleName;
-  final String make;
-  final String model;
-  final String year;
-
+  final VehicleModel _selectedVehicleModel;
   @override
   State<OdometerUpdateScreen> createState() => _OdometerUpdateScreenState();
 }
 
 class _OdometerUpdateScreenState extends State<OdometerUpdateScreen> {
+  late VehicleModel _selectedVehicleModel;
+
   late final TextEditingController _odometerController;
-  late final TextEditingController _dateController;
   late final TextEditingController _notesController;
 
-  late DateTime _selectedDate;
+  String? _odometerInputErrorText;
+  String? _odometerRecordDateErrorText;
+
   bool _isSaving = false;
-  String? _odometerError;
+
+  DateTime? _recordDate;
 
   int? get _newOdometer {
     final value = int.tryParse(
@@ -44,33 +40,23 @@ class _OdometerUpdateScreenState extends State<OdometerUpdateScreen> {
     return value;
   }
 
-  int get _distanceDifference =>
-      (_newOdometer ?? widget.currentOdometer) - widget.currentOdometer;
-
   @override
   void initState() {
     super.initState();
+    _selectedVehicleModel = widget._selectedVehicleModel;
+    _odometerController = TextEditingController();
 
-    _selectedDate = DateTime.now();
-    _odometerController = TextEditingController(
-      text: _formatNumber(widget.currentOdometer),
-    );
-    _dateController = TextEditingController(text: _formatDate(_selectedDate));
     _notesController = TextEditingController();
-
-    _odometerController.addListener(_validateOdometer);
   }
 
   @override
   void dispose() {
-    _odometerController.removeListener(_validateOdometer);
     _odometerController.dispose();
-    _dateController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
-  void _validateOdometer() {
+  bool _validateOdometer() {
     final value = _newOdometer;
     String? error;
 
@@ -78,97 +64,58 @@ class _OdometerUpdateScreenState extends State<OdometerUpdateScreen> {
       error = 'Enter the new odometer reading.';
     } else if (value == null) {
       error = 'Enter a valid whole-number reading.';
-    } else if (value < widget.currentOdometer) {
-      error =
-          'Reading must be at least ${_formatNumber(widget.currentOdometer)} km.';
     }
 
-    if (error != _odometerError && mounted) {
-      setState(() => _odometerError = error);
+    if (error != null && error.isNotEmpty) {
+      setState(() {
+        _odometerInputErrorText = error;
+      });
+      return false;
     }
-  }
 
-  Future<void> _selectDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(
-              context,
-            ).colorScheme.copyWith(primary: AppColors.primary),
-          ),
-          child: child!,
-        );
-      },
-    );
+    if (_recordDate == null) {
+      setState(() {
+        _odometerRecordDateErrorText = "Select a record date";
+      });
+    }
 
-    if (picked == null || !mounted) return;
-
-    setState(() {
-      _selectedDate = picked;
-      _dateController.text = _formatDate(picked);
-    });
+    return true;
   }
 
   Future<void> _saveReading() async {
-    _validateOdometer();
-
-    if (_odometerError != null || _newOdometer == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_odometerError ?? 'Enter a valid reading.')),
-      );
+    if (_isSaving) {
       return;
     }
 
-    setState(() => _isSaving = true);
+    if (_validateOdometer()) {
+      _isSaving = true;
+      OdometerModel record = OdometerModel(
+        vehicleId: _selectedVehicleModel.id!,
+        odometerReading: _newOdometer!,
+        notes: _notesController.text,
+        recordedAt: _recordDate!.toIso8601String(),
+      );
+      final result = await OdometerRepository.instance.addOdometerRecord(
+        _selectedVehicleModel.id!,
+        record,
+      );
 
-    try {
-      // Return the new reading to the dashboard.
-      // Persistent storage will be connected later.
-      if (!mounted) return;
-      Navigator.of(context).pop<int>(_newOdometer);
-    } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
+      if (!result.isSuccess) {
+        setState(() {
+          _isSaving = false;
+          _odometerInputErrorText = result.errorMessage;
+        });
+      } else {
+        if (result.isLatestRecord) {
+          // Update your selected vehicle's currentOdometer
+          // and return the updated VehicleModel if needed.
+          widget._selectedVehicleModel.currentOdometer = _newOdometer!;
+          Navigator.of(context).pop<VehicleModel>(widget._selectedVehicleModel);
+        } else {
+          Navigator.of(context).pop<VehicleModel>(widget._selectedVehicleModel);
+        }
       }
     }
-  }
-
-  String _formatNumber(int value) {
-    final digits = value.toString();
-    return digits.replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (match) => '${match[1]},',
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-
-    final today = DateTime.now();
-    final isToday =
-        date.year == today.year &&
-        date.month == today.month &&
-        date.day == today.day;
-
-    return '${isToday ? 'Today, ' : ''}${date.day} ${months[date.month - 1]}';
   }
 
   @override
@@ -190,9 +137,6 @@ class _OdometerUpdateScreenState extends State<OdometerUpdateScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildVehicleCard(),
-                    SizedBox(height: AppDimensions.space24.h),
-
                     Text(
                       'Update your odometer',
                       style: AppTextStyles.pageTitle.copyWith(fontSize: 27.sp),
@@ -210,137 +154,46 @@ class _OdometerUpdateScreenState extends State<OdometerUpdateScreen> {
                     AppTextField(
                       label: 'New odometer reading',
                       controller: _odometerController,
+                      errorText: _odometerInputErrorText,
                       hint: 'Enter odometer reading',
                       suffix: 'km',
                       keyboardType: TextInputType.number,
-                    ),
-
-                    if (_odometerError != null) ...[
-                      SizedBox(height: AppDimensions.space8.h),
-                      Text(
-                        _odometerError!,
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.error,
-                        ),
-                      ),
-                    ] else ...[
-                      SizedBox(height: AppDimensions.space8.h),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: 15.sp,
-                            color: AppColors.textSecondary,
-                          ),
-                          SizedBox(width: AppDimensions.space8.w),
-                          Expanded(
-                            child: Text(
-                              'Must be equal to or higher than your '
-                              'previous reading '
-                              '(${_formatNumber(widget.currentOdometer)} km).',
-                              style: AppTextStyles.caption.copyWith(
-                                fontSize: 12.sp,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-
-                    if (_distanceDifference >= 0) ...[
-                      SizedBox(height: AppDimensions.space8.h),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: AppDimensions.space12.w,
-                          vertical: AppDimensions.space8.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primarySoft,
-                          borderRadius: BorderRadius.circular(AppRadius.pill),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.trending_up,
-                              size: 14.sp,
-                              color: AppColors.primary,
-                            ),
-                            SizedBox(width: AppDimensions.space4.w),
-                            Text(
-                              '+${_formatNumber(_distanceDifference)} km since last update',
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.warning,
-                                fontSize: 11.sp,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    SizedBox(height: AppDimensions.space20.h),
-
-                    AppTextField(
-                      label: 'Date recorded',
-                      hint: "",
-                      controller: _dateController,
-                      readOnly: true,
-                      suffixIcon: Icons.calendar_today_outlined,
-                      onTap: _selectDate,
+                      onChanged: (_) {
+                        if (_odometerInputErrorText != null &&
+                            _odometerInputErrorText!.isNotEmpty) {
+                          setState(() {
+                            _odometerInputErrorText = null;
+                          });
+                        }
+                      },
                     ),
 
                     SizedBox(height: AppDimensions.space16.h),
 
-                    Row(
-                      children: [
-                        Text(
-                          'Notes (Optional)',
-                          style: AppTextStyles.fieldLabel,
-                        ),
-                        const Spacer(),
-                        Text(
-                          'Optional',
-                          style: AppTextStyles.caption.copyWith(
-                            fontSize: 11.sp,
-                          ),
-                        ),
-                      ],
+                    AppDatePicker(
+                      label: 'Update date',
+                      value: _recordDate,
+                      hint: 'e.g. 15 Oct 2023',
+                      errorText: _odometerRecordDateErrorText,
+                      firstDate: DateTime(1980),
+                      lastDate: DateTime.now(),
+                      onChanged: (date) {
+                        _odometerRecordDateErrorText = null;
+                        setState(() {
+                          _recordDate = date;
+                        });
+                      },
                     ),
-                    SizedBox(height: AppDimensions.space8.h),
 
-                    TextField(
+                    SizedBox(height: AppDimensions.space16.h),
+                    AppTextField(
+                      label: 'Notes (Optional)',
                       controller: _notesController,
-                      maxLines: 3,
-                      minLines: 3,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: InputDecoration(
-                        hintText:
-                            'Add a note about this reading (e.g. after road trip)...',
-                        hintStyle: AppTextStyles.bodySecondary.copyWith(
-                          fontSize: 14.sp,
-                          height: 1.5,
-                        ),
-                        filled: true,
-                        fillColor: AppColors.surface,
-                        contentPadding: EdgeInsets.all(AppDimensions.space16.w),
-                        border: OutlineInputBorder(
-                          borderRadius: AppRadius.largeRadius,
-                          borderSide: const BorderSide(color: AppColors.border),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: AppRadius.largeRadius,
-                          borderSide: const BorderSide(color: AppColors.border),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: AppRadius.largeRadius,
-                          borderSide: const BorderSide(
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
+                      hint:
+                          'Add a note about this reading (e.g. after road trip)...',
+                      maxLines: 5,
+                      minLines: 5,
+                      textInputAction: TextInputAction.newline,
                     ),
                   ],
                 ),
@@ -359,7 +212,7 @@ class _OdometerUpdateScreenState extends State<OdometerUpdateScreen> {
                 children: [
                   AppBottomAction(
                     label: 'Save odometer reading',
-                    isLoading: _isSaving,
+
                     onPressed: _isSaving ? null : _saveReading,
                   ),
                   TextButton(
@@ -422,76 +275,6 @@ class _OdometerUpdateScreenState extends State<OdometerUpdateScreen> {
               color: Colors.white,
               size: AppDimensions.iconMedium.sp,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVehicleCard() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(AppDimensions.space16.w),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
-        borderRadius: AppRadius.largeRadius,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48.w,
-            height: 48.w,
-            decoration: BoxDecoration(
-              color: AppColors.primarySoft,
-              borderRadius: AppRadius.mediumRadius,
-            ),
-            child: Icon(
-              Icons.directions_car_filled_outlined,
-              color: AppColors.primary,
-              size: AppDimensions.iconLarge.sp,
-            ),
-          ),
-          SizedBox(width: AppDimensions.space16.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.vehicleName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.cardTitle.copyWith(fontSize: 15.sp),
-                ),
-                SizedBox(height: AppDimensions.space4.h),
-                Text(
-                  '${widget.make} ${widget.model} · ${widget.year}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.caption.copyWith(fontSize: 12.sp),
-                ),
-                SizedBox(height: AppDimensions.space4.h),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: AppDimensions.space8.w,
-                    vertical: AppDimensions.space2.h,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceSecondary,
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                  ),
-                  child: Text(
-                    'Current: ${_formatNumber(widget.currentOdometer)} km',
-                    style: AppTextStyles.caption.copyWith(fontSize: 11.sp),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Icon(
-            Icons.unfold_more,
-            color: AppColors.textSecondary,
-            size: AppDimensions.iconMedium.sp,
           ),
         ],
       ),

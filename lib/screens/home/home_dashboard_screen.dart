@@ -7,8 +7,8 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimensions.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_text_styles.dart';
-import '../../core/widgets/logbook_date_group.dart';
-import '../../models/logbook_entry.dart';
+import '../../features/logbook/logbook_date_group.dart';
+import '../../features/logbook/models/logbook_entry.dart';
 import '../../core/widgets/quick_actions_menu.dart';
 import 'odometer_update_screen.dart';
 import 'fuel_refill_screen.dart';
@@ -26,10 +26,6 @@ class HomeDashboardScreen extends StatefulWidget {
 
 class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   // Temporary vehicle data. Replace with saved data later.
-  final String _vehicleName = 'My daily car';
-  final String _vehicleMakeModel = 'Maruti Suzuki Swift';
-  final String _vehicleYear = '2023';
-  String _odometer = '24,500';
 
   // Logbook data: each date can contain any number of entries.
   final List<LogbookDateGroupData> _logbookGroups = const [
@@ -142,85 +138,40 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Future<void> _handleQuickAction(QuickAction action) async {
     switch (action) {
       case QuickAction.updateOdometer:
+        final VehicleModel? updatedVehicleModel = await Navigator.of(context)
+            .push<VehicleModel>(
+              MaterialPageRoute(
+                builder: (_) => OdometerUpdateScreen(
+                  selectedVehicleModel: _selectedVehicle!,
+                ),
+              ),
+            );
+
+        if (updatedVehicleModel != null) {
+          setState(() {
+            _selectedVehicle = updatedVehicleModel;
+          });
+        }
         break;
 
       case QuickAction.addFuel:
-        final currentReading = int.tryParse(_odometer.replaceAll(',', '')) ?? 0;
-
-        final result = await Navigator.of(context).push<FuelRefillResult>(
-          MaterialPageRoute(
-            builder: (_) => FuelRefillScreen(
-              vehicleName: _vehicleName,
-              make: 'Maruti Suzuki',
-              model: 'Swift',
-              year: _vehicleYear,
-              currentOdometer: currentReading,
-            ),
-          ),
-        );
-
-        if (!mounted || result == null) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Fuel entry recorded: '
-              '${result.quantity.toStringAsFixed(2)} L · '
-              '₹${result.totalCost.toStringAsFixed(2)}',
-            ),
-          ),
-        );
         break;
       case QuickAction.addReminder:
         _showComingSoon('Add reminder');
         break;
       case QuickAction.addExpense:
-        Navigator.of(context)
-            .push<ExpenseResult>(
-              MaterialPageRoute(
-                builder: (_) => AddExpenseScreen(
-                  vehicleName: _vehicleName,
-                  make: _vehicleMakeModel.split(' ').first,
-                  model: _vehicleMakeModel.split(' ').skip(1).join(' '),
-                  year: _vehicleYear,
-                ),
-              ),
-            )
-            .then((result) {
-              if (result == null || !mounted) return;
-
-              // TODO: Save the expense through your expense repository.
-              // The form data is available in `result`.
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Expense form completed successfully.'),
-                ),
-              );
-            });
-        break;
-      case QuickAction.addMaintenance:
-        final currentReading = int.tryParse(_odometer.replaceAll(',', '')) ?? 0;
-
-        final result = await Navigator.of(context).push<ServiceRepairResult>(
+        Navigator.of(context).push<AddExpenseScreen>(
           MaterialPageRoute(
-            builder: (_) => ServiceRepairScreen(
-              vehicleName: _vehicleName,
-              make: 'Maruti Suzuki',
-              model: 'Swift',
-              year: _vehicleYear,
-              currentOdometer: currentReading,
+            builder: (_) => AddExpenseScreen(
+              vehicleName: '',
+              make: '',
+              model: '',
+              year: '',
             ),
           ),
         );
-
-        if (!mounted || result == null) return;
-
-        // TODO: Save the service record through your service repository.
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Service record completed successfully.'),
-          ),
-        );
+        break;
+      case QuickAction.addMaintenance:
         break;
       case QuickAction.uploadDocument:
         // Navigator.of(context)
@@ -249,28 +200,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         //     });
         break;
       case QuickAction.addNote:
-        Navigator.of(context)
-            .push<VehicleNoteResult>(
-              MaterialPageRoute(
-                builder: (_) => AddNoteScreen(
-                  vehicleName: _vehicleName,
-                  make: 'Maruti Suzuki',
-                  model: 'Swift',
-                  year: _vehicleYear,
-                ),
-              ),
-            )
-            .then((result) {
-              if (result == null || !mounted) return;
-
-              // TODO: Save result through your notes repository.
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Note "${result.title}" added successfully.'),
-                ),
-              );
-            });
         break;
     }
   }
@@ -542,16 +471,4 @@ class _SummaryCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _NavigationDestination {
-  const _NavigationDestination({
-    required this.label,
-    required this.icon,
-    required this.selectedIcon,
-  });
-
-  final String label;
-  final IconData icon;
-  final IconData selectedIcon;
 }
